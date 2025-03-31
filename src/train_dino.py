@@ -54,17 +54,11 @@ scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50, eta_min=1e
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 train_class_accuracy = torchmetrics.Accuracy("binary").to(device)
 val_class_accuracy = torchmetrics.Accuracy("binary").to(device)
-train_domain_accuracy = torchmetrics.Accuracy("multiclass", num_classes=5).to(device)
-val_domain_accuracy = torchmetrics.Accuracy("multiclass", num_classes=5).to(device)
-test_domain_accuracy = torchmetrics.Accuracy("multiclass", num_classes=5).to(device)
 train_loss = []
 val_loss = []
 test_loss = []
 train_class_acc_h = []
-train_dom_acc_h = []
 val_class_acc_h = []
-val_dom_acc_h = []
-test_domain_acc_h = []
 
 # Define training parameters
 n_epoch = 50
@@ -84,89 +78,53 @@ for epoch in tqdm(range(n_epoch)):
     val_ep_loss = 0
     test_ep_loss = 0
     train_class_accuracy.reset()
-    train_domain_accuracy.reset()
     ## Train ###
     for i, (x, y, c) in enumerate(train_dataloader):
-        alpha = alpha_scheduler.step()
         x, y, c = x.to(device), y.to(device), c.to(device)
         optimizer.zero_grad()
         features = model.feature_extractor(x)
         label_output = model.label_classifier(features)
-        domain_output = model.domain_discriminator(model.grl(features, alpha))
         label_loss = criterion(label_output, y)
-        domain_loss = criterion(domain_output, c)
-        loss = label_loss + domain_loss
+        loss = label_loss
         loss.backward()
         optimizer.step()
         probs_class = F.softmax(label_output, dim=1)
-        probs_domain = F.softmax(domain_output, dim=1)
         train_class_accuracy(torch.argmax(probs_class, dim=1), y)
-        train_domain_accuracy(torch.argmax(probs_domain, dim=1), c)
         train_ep_loss += loss.item()
     train_loss.append(train_ep_loss / len(train_dataloader))
     train_class_acc_h.append(train_class_accuracy.compute().item())
-    train_dom_acc_h.append(train_domain_accuracy.compute().item())
-    print(f'Epoch {epoch+1}/{n_epoch} - Train Accuracy: {train_class_accuracy.compute()} - Train Domain Accuracy: {train_domain_accuracy.compute()}')
-    print("Alpha: ", alpha) 
+    print(f'Epoch {epoch+1}/{n_epoch} - Train Accuracy: {train_class_accuracy.compute()}')
     
     ### Val ###
     val_class_accuracy.reset()
-    val_domain_accuracy.reset()
     for i, (x, y, c) in enumerate(val_dataloader):
-        alpha = alpha_scheduler.step()
-        x, y, c = x.to(device), y.to(device), c.to(device)
-        optimizer.zero_grad()
-        features = model.feature_extractor(x)
-        label_output = model.label_classifier(features)
-        domain_output = model.domain_discriminator(model.grl(features, alpha))
-        label_loss = criterion(label_output, y)
-        domain_loss = criterion(domain_output, c)
-        loss = domain_loss
-        loss.backward()
-        optimizer.step()
-        probs_class = F.softmax(label_output, dim=1)
-        probs_domain = F.softmax(domain_output, dim=1)
-        val_class_accuracy(torch.argmax(probs_class, dim=1), y)
-        val_domain_accuracy(torch.argmax(probs_domain, dim=1), c)
-        val_ep_loss += loss.item()
+        with torch.no_grad():
+            x, y, c = x.to(device), y.to(device), c.to(device)
+            optimizer.zero_grad()
+            features = model.feature_extractor(x)
+            label_output = model.label_classifier(features)
+            label_loss = criterion(label_output, y)
+            loss = label_loss
+            probs_class = F.softmax(label_output, dim=1)
+            val_class_accuracy(torch.argmax(probs_class, dim=1), y)
+            val_ep_loss += loss.item()
     val_loss.append(val_ep_loss / len(val_dataloader))
     val_class_acc_h.append(val_class_accuracy.compute().item())
-    val_dom_acc_h.append(val_domain_accuracy.compute().item())
-    print(f'Epoch {epoch+1}/{n_epoch} - Val Accuracy: {val_class_accuracy.compute()} - Val Domain Accuracy: {val_domain_accuracy.compute()}')
-    print("Alpha: ", alpha) 
-    ### Test ###
-    test_domain_accuracy.reset()
-    for i, (x, c) in enumerate(test_dataloader):
-        alpha = alpha_scheduler.step()
-        x, c = x.to(device), c.to(device)
-        optimizer.zero_grad()
-        features = model.feature_extractor(x)
-        domain_output = model.domain_discriminator(model.grl(features, alpha))
-        domain_loss = criterion(domain_output, c)
-        loss = domain_loss
-        loss.backward()
-        optimizer.step()
-        probs_domain = F.softmax(domain_output, dim=1)
-        test_domain_accuracy(torch.argmax(probs_domain, dim=1), c)
-        test_ep_loss += loss.item()
-    test_loss.append(test_ep_loss / len(test_dataloader))
-    test_domain_acc_h.append(test_domain_accuracy.compute().item())
-    print(f'Epoch {epoch+1}/{n_epoch} - Test Domain Accuracy: {test_domain_accuracy.compute()}')
-    print("Alpha: ", alpha) 
+    print(f'Epoch {epoch+1}/{n_epoch} - Val Accuracy: {val_class_accuracy.compute()}')
+    
     scheduler.step()
     # Save model if val_class_accuracy is better
     if val_class_accuracy.compute() > best_val_acc:
         best_val_acc = val_class_accuracy.compute()
-        torch.save(model.state_dict(), 'model_dann.pth')
+        torch.save(model.state_dict(), 'model_dino.pth')
         print('Model saved')
 
 # Plot results
 plt.title('Losses')
 plt.plot(train_loss, label='Train Loss')
 plt.plot(val_loss, label='Val Loss')
-plt.plot(test_loss, label='Test Loss')
 plt.legend()
-plt.savefig('loss_dann.png')
+plt.savefig('loss_dino.png')
 # clear
 plt.clf()
 
@@ -175,31 +133,19 @@ plt.title('Class Accuracies')
 plt.plot(train_class_acc_h, label='Train Class Accuracy')
 plt.plot(val_class_acc_h, label='Val Class Accuracy')
 plt.legend()
-plt.savefig('class_acc_dann.png')
+plt.savefig('class_acc_dino.png')
 # clear
 plt.clf()
 
-# Plot domain accs
-plt.title('Domain Accuracy')
-plt.plot(train_dom_acc_h, label='Train Domain Accuracy')
-plt.plot(val_dom_acc_h, label='Val Domain Accuracy')
-plt.plot(test_domain_acc_h, label='Test Domain Accuracy')
-plt.legend()
-plt.savefig('dom_acc_dann.png')
-# clear
-plt.clf()
 
 
 # Save results in json
 results = {
     'train_class_accuracy': train_class_accuracy.compute().item(),
     'val_class_accuracy': best_val_acc.item(),
-    'train_domain_accuracy': train_domain_accuracy.compute().item(),
-    'val_domain_accuracy': val_domain_accuracy.compute().item(),
-    'test_domain_accuracy': test_domain_accuracy.compute().item()
 }
 
 # save results to json
-with open('results_dann.json', 'w') as f:
+with open('results_dino.json', 'w') as f:
     json.dump(results, f)
 

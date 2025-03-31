@@ -72,11 +72,65 @@ alpha = 1.
 len_dataloader = len(train_dataloader)
 model.to(device)
 
-# Training loop
+# Phase 1 Training loop
 best_val_acc = 0
+
+for epoch in tqdm(range(n_epoch)):
+    model.train()
+    train_ep_loss = 0
+    val_ep_loss = 0
+    test_ep_loss = 0
+    train_class_accuracy.reset()
+    ## Train ###
+    for i, (x, y, c) in enumerate(train_dataloader):
+        x, y, c = x.to(device), y.to(device), c.to(device)
+        optimizer.zero_grad()
+        features = model.feature_extractor(x)
+        label_output = model.label_classifier(features)
+        label_loss = criterion(label_output, y)
+        loss = label_loss
+        loss.backward()
+        optimizer.step()
+        probs_class = F.softmax(label_output, dim=1)
+        train_class_accuracy(torch.argmax(probs_class, dim=1), y)
+        train_ep_loss += loss.item()
+    train_loss.append(train_ep_loss / len(train_dataloader))
+    train_class_acc_h.append(train_class_accuracy.compute().item())
+    print(f'Epoch {epoch+1}/{n_epoch} - Train Accuracy: {train_class_accuracy.compute()}')
+    
+    ### Val ###
+    val_class_accuracy.reset()
+    for i, (x, y, c) in enumerate(val_dataloader):
+        with torch.no_grad():
+            x, y, c = x.to(device), y.to(device), c.to(device)
+            features = model.feature_extractor(x)
+            label_output = model.label_classifier(features)
+            label_loss = criterion(label_output, y)
+            loss = label_loss
+            probs_class = F.softmax(label_output, dim=1)
+            val_class_accuracy(torch.argmax(probs_class, dim=1), y)
+            val_ep_loss += loss.item()
+    val_loss.append(val_ep_loss / len(val_dataloader))
+    val_class_acc_h.append(val_class_accuracy.compute().item())
+    print(f'Epoch {epoch+1}/{n_epoch} - Val Accuracy: {val_class_accuracy.compute()}')
+    
+    scheduler.step()
+    # Save model if val_class_accuracy is better
+    if val_class_accuracy.compute() > best_val_acc:
+        best_val_acc = val_class_accuracy.compute()
+        torch.save(model.state_dict(), 'model.pth')
+        print('Model saved')
+
+# Phase two
+n_epoch = 20
 steps_per_epoch = len(train_dataloader) + len(val_dataloader) + len(test_dataloader)
 total_steps = n_epoch * steps_per_epoch
 alpha_scheduler = AlphaScheduler(total_steps)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
+scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50, eta_min=1e-6)
+
+# Load best model from previous phase
+model.load_state_dict(torch.load('model.pth'))
 
 for epoch in tqdm(range(n_epoch)):
     model.train()
@@ -157,7 +211,7 @@ for epoch in tqdm(range(n_epoch)):
     # Save model if val_class_accuracy is better
     if val_class_accuracy.compute() > best_val_acc:
         best_val_acc = val_class_accuracy.compute()
-        torch.save(model.state_dict(), 'model_dann.pth')
+        torch.save(model.state_dict(), 'model_mix.pth')
         print('Model saved')
 
 # Plot results
@@ -166,7 +220,7 @@ plt.plot(train_loss, label='Train Loss')
 plt.plot(val_loss, label='Val Loss')
 plt.plot(test_loss, label='Test Loss')
 plt.legend()
-plt.savefig('loss_dann.png')
+plt.savefig('loss_mix.png')
 # clear
 plt.clf()
 
@@ -175,7 +229,7 @@ plt.title('Class Accuracies')
 plt.plot(train_class_acc_h, label='Train Class Accuracy')
 plt.plot(val_class_acc_h, label='Val Class Accuracy')
 plt.legend()
-plt.savefig('class_acc_dann.png')
+plt.savefig('class_acc_mix.png')
 # clear
 plt.clf()
 
@@ -185,7 +239,7 @@ plt.plot(train_dom_acc_h, label='Train Domain Accuracy')
 plt.plot(val_dom_acc_h, label='Val Domain Accuracy')
 plt.plot(test_domain_acc_h, label='Test Domain Accuracy')
 plt.legend()
-plt.savefig('dom_acc_dann.png')
+plt.savefig('dom_acc_mix.png')
 # clear
 plt.clf()
 
@@ -200,6 +254,6 @@ results = {
 }
 
 # save results to json
-with open('results_dann.json', 'w') as f:
+with open('results_mix.json', 'w') as f:
     json.dump(results, f)
 

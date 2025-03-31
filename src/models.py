@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 from torch.autograd import Function
+from utils import init_weights_xavier
+from torchvision.models import resnet18, resnet34
 
 # --------------------------
 # Gradient Reversal Layer
@@ -20,8 +22,8 @@ class GradientReversal(nn.Module):
         super().__init__()
         self.lambda_ = lambda_
 
-    def forward(self, x):
-        return GradientReversalFunction.apply(x, self.lambda_)
+    def forward(self, x, alpha):
+        return GradientReversalFunction.apply(x, alpha)
 
 # --------------------------
 # Feature Extractor
@@ -30,9 +32,16 @@ class GradientReversal(nn.Module):
 class FeatureExtractor(nn.Module):
     def __init__(self):
         super().__init__()
-        self.net = torch.hub.load('pytorch/vision:v0.10.0', 'resnet18')
-        self.net.fc = nn.Identity()
-
+        self.net = torch.hub.load('facebookresearch/dinov2', 'dinov2_vits14')
+        # Freeze the feature extractor
+        for param in self.net.parameters():
+            param.requires_grad = False
+        # add three linear layers to the end of the network
+        self.net.head = nn.Sequential(
+            nn.Linear(384, 512),
+            nn.ReLU(),
+            nn.Linear(512, 512))
+        
     def forward(self, x):
         return self.net(x)
 
@@ -45,10 +54,10 @@ class LabelClassifier(nn.Module):
         self.classifier = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
+            # nn.Linear(hidden_dim, hidden_dim),
+            # nn.ReLU(),
+            # nn.Linear(hidden_dim, hidden_dim),
+            # nn.ReLU(),
             nn.Linear(hidden_dim, num_classes)
         )
 
@@ -64,9 +73,10 @@ class DomainDiscriminator(nn.Module):
         self.discriminator = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
+            # nn.Linear(hidden_dim, hidden_dim),
+            # nn.ReLU(),
+            # nn.Linear(hidden_dim, hidden_dim),
+            # nn.ReLU(),
             nn.Linear(hidden_dim, num_dom)
         )
 
@@ -83,10 +93,13 @@ class DANN(nn.Module):
         self.label_classifier = LabelClassifier(input_dim, hidden_dim, num_classes)
         self.domain_discriminator = DomainDiscriminator(input_dim, hidden_dim, num_dom)
         self.grl = GradientReversal(lambda_grl)
+        self.label_classifier.apply(init_weights_xavier)
+        self.domain_discriminator.apply(init_weights_xavier)
+
 
     def forward(self, x, alpha=1.0):
         features = self.feature_extractor(x)
         class_preds = self.label_classifier(features)
-        reversed_features = self.grl(features)
+        reversed_features = self.grl(features, alpha)
         domain_preds = self.domain_discriminator(reversed_features)
         return class_preds, domain_preds
