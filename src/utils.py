@@ -4,6 +4,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset
 import h5py
 import numpy as np
+import math
     
 class BaselineDataset(Dataset):
     def __init__(self, dataset_path, preprocessing, mode):
@@ -70,3 +71,34 @@ class AlphaScheduler:
         alpha = self.min_alpha + (self.max_alpha - self.min_alpha) * (2.0 / (1.0 + np.exp(-self.gamma * p)) - 1.0)
         self.current_step += 1
         return alpha
+    
+# ============================
+# Dataset personalizado
+# ============================
+class CombinedH5UnlabeledDataset(Dataset):
+    def __init__(self, h5_paths, transform=None):
+        self.h5_paths = h5_paths
+        self.data_index = []  # lista de tuplas: (archivo_idx, img_id)
+        self.transform = transform
+
+        for file_idx, path in enumerate(h5_paths):
+            with h5py.File(path, 'r') as f:
+                for img_id in f.keys():
+                    self.data_index.append((file_idx, img_id))
+
+    def __len__(self):
+        return len(self.data_index)
+
+    def __getitem__(self, idx):
+        file_idx, img_id = self.data_index[idx]
+        h5_path = self.h5_paths[file_idx]
+        with h5py.File(h5_path, 'r') as f:
+            img_np = np.array(f[img_id]['img'])
+        img = torch.tensor(img_np)
+        if img.ndim == 3 and img.shape[0] != 3:
+            img = img.permute(2, 0, 1)
+        if self.transform:
+            img = self.transform(img)
+        return img.float(), 0  # dummy label
+
+    
