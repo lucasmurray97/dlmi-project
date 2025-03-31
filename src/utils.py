@@ -16,8 +16,7 @@ class BaselineDataset(Dataset):
             self.image_ids = list(hdf.keys())
 
     def __len__(self):
-        # return len(self.image_ids)
-        return 20000
+        return len(self.image_ids)
 
     def __getitem__(self, idx):
         img_id = self.image_ids[idx]

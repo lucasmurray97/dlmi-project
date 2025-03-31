@@ -38,9 +38,9 @@ train_dataset = BaselineDataset(TRAIN_IMAGES_PATH, transforms.Compose([transform
 val_dataset = ValBaselineDataset(VAL_IMAGES_PATH, transforms.Compose([transforms.ToPILImage(),transforms.Resize((98, 98)), transforms.ToTensor()]))
 test_dataset = TestBaselineDataset(TEST_IMAGES_PATH, transforms.Compose([transforms.ToPILImage(),transforms.Resize((98, 98)), transforms.ToTensor()]))
 
-train_dataloader = DataLoader(train_dataset, batch_size=256, shuffle=True, num_workers=8)
-val_dataloader = DataLoader(val_dataset, batch_size=256, shuffle=False, num_workers=8)
-test_dataloader = DataLoader(test_dataset, batch_size=256, shuffle=False, num_workers=8)
+train_dataloader = DataLoader(train_dataset, batch_size=1024, shuffle=True, num_workers=1024)
+val_dataloader = DataLoader(val_dataset, batch_size=1024, shuffle=False, num_workers=1024)
+test_dataloader = DataLoader(test_dataset, batch_size=1024, shuffle=False, num_workers=1024)
 
 # Define model
 model = DANN(input_dim=512, hidden_dim=256, num_classes=2, lambda_grl=1.0, num_dom=5)
