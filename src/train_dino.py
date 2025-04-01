@@ -81,7 +81,7 @@ val_class_acc_h = []
 n_epoch = 50
 alpha = 1.
 len_dataloader = len(train_dataloader)
-print(len_dataloader)
+print(len(train_dataset))
 model.to(device)
 
 # Training loop
