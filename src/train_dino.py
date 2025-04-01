@@ -16,23 +16,23 @@ import torch.nn.functional as F
 from torch.autograd import Function
 import torch.nn as nn
 import json
-from utils import AlphaScheduler
+from utils_training import AlphaScheduler
 
 # Get current path
 import os
 import sys
 from pathlib import Path
 import os
+from utils_training import BaselineDataset, TestBaselineDataset, ValBaselineDataset
+from models import DANN
+import dino_mod.vision_transformer as vits
+from dino_mod.utils import restart_from_checkpoint
 
 current_path = os.path.dirname(os.path.abspath(__file__))
 TRAIN_IMAGES_PATH = os.path.abspath(os.path.join(current_path, '..', 'data', 'train.h5'))
 VAL_IMAGES_PATH = os.path.abspath(os.path.join(current_path, '..', 'data', 'val.h5'))
 TEST_IMAGES_PATH = os.path.abspath(os.path.join(current_path, '..', 'data', 'test.h5'))
 SEED = 0
-from utils import BaselineDataset, TestBaselineDataset, ValBaselineDataset
-from models import DANN
-import dino_mod.vision_transformer as vits
-from dino_mod.utils import restart_from_checkpoint
 
 
 # Load data
@@ -49,15 +49,18 @@ backbone = vits.__dict__['vit_small'](
             patch_size=16,
             drop_path_rate=0.1,  # stochastic depth
         )
+
 to_restore = {"epoch": 0}
 restart_from_checkpoint(
-        os.path.join('../../checkpoints/', "checkpoint.pth"),
+        os.path.join('../../checkpoints/', "checkpoint0008.pth"),
         run_variables=to_restore,
         student=backbone,
     )
 
 model = DANN(input_dim=512, hidden_dim=256, num_classes=2, lambda_grl=1.0, num_dom=5)
 model.blocks = backbone
+for param in model.blocks.parameters():
+    param.requires_grad = False
 # print number of trainable parameters 
 print(f'Number of trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}')
 criterion = nn.CrossEntropyLoss()
@@ -75,7 +78,7 @@ train_class_acc_h = []
 val_class_acc_h = []
 
 # Define training parameters
-n_epoch = 50
+n_epoch = 6
 alpha = 1.
 len_dataloader = len(train_dataloader)
 model.to(device)

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.autograd import Function
-from utils import init_weights_xavier
+from utils_training import init_weights_xavier
 from torchvision.models import resnet18, resnet34
 
 # --------------------------

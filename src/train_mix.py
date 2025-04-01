@@ -16,21 +16,19 @@ import torch.nn.functional as F
 from torch.autograd import Function
 import torch.nn as nn
 import json
-from utils import AlphaScheduler
-
-# Get current path
+from utils_training import AlphaScheduler
 import os
 import sys
 from pathlib import Path
 import os
+from utils_training import BaselineDataset, TestBaselineDataset, ValBaselineDataset
+from models import DANN
 
 current_path = os.path.dirname(os.path.abspath(__file__))
 TRAIN_IMAGES_PATH = os.path.abspath(os.path.join(current_path, '..', 'data', 'train.h5'))
 VAL_IMAGES_PATH = os.path.abspath(os.path.join(current_path, '..', 'data', 'val.h5'))
 TEST_IMAGES_PATH = os.path.abspath(os.path.join(current_path, '..', 'data', 'test.h5'))
 SEED = 0
-from utils import BaselineDataset, TestBaselineDataset, ValBaselineDataset
-from models import DANN
 
 
 # Load data
