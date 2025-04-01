@@ -40,9 +40,9 @@ train_dataset = BaselineDataset(TRAIN_IMAGES_PATH, transforms.Compose([transform
 val_dataset = ValBaselineDataset(VAL_IMAGES_PATH, transforms.Compose([transforms.ToPILImage(),transforms.Resize((98, 98)), transforms.ToTensor()]))
 test_dataset = TestBaselineDataset(TEST_IMAGES_PATH, transforms.Compose([transforms.ToPILImage(),transforms.Resize((98, 98)), transforms.ToTensor()]))
 
-train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=4)
-val_dataloader = DataLoader(val_dataset, batch_size=128, shuffle=False, num_workers=4)
-test_dataloader = DataLoader(test_dataset, batch_size=128, shuffle=False, num_workers=4)
+train_dataloader = DataLoader(train_dataset, batch_size=512, shuffle=True, num_workers=4)
+val_dataloader = DataLoader(val_dataset, batch_size=512, shuffle=False, num_workers=4)
+test_dataloader = DataLoader(test_dataset, batch_size=512, shuffle=False, num_workers=4)
 
 # Define model
 backbone = vits.__dict__['vit_small'](
