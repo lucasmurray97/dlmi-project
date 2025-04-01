@@ -271,6 +271,12 @@ def train_dino(args):
     #     dino_loss=dino_loss,
     # )
     start_epoch = to_restore["epoch"]
+    class_discriminator = ClassDiscriminator(input_dim=65536, num_classes=3).to(student.device)
+    class_criterion = nn.CrossEntropyLoss()
+    class_optimizer = torch.optim.AdamW(class_discriminator.parameters(), lr=1e-5)
+    grl = GradientReversal(lambda_=1.0)
+    total_steps = args.epochs * len(data_loader)
+    alpha_scheduler = AlphaScheduler(total_steps)
 
     start_time = time.time()
     print("Starting DINO training !")
@@ -280,7 +286,7 @@ def train_dino(args):
         # ============ training one epoch of DINO ... ============
         train_stats = train_one_epoch(student, teacher, teacher_without_ddp, dino_loss,
             data_loader, optimizer, lr_schedule, wd_schedule, momentum_schedule,
-            epoch, fp16_scaler, args)
+            epoch, fp16_scaler, args, class_discriminator, class_criterion, class_optimizer, grl, alpha_scheduler)
 
         # ============ writing logs ... ============
         save_dict = {
@@ -308,13 +314,13 @@ def train_dino(args):
 
 def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loader,
                     optimizer, lr_schedule, wd_schedule, momentum_schedule,epoch,
-                    fp16_scaler, args):
+                    fp16_scaler, args, class_discriminator, class_criterion, class_optimizer, grl, alpha_scheduler):
     metric_logger = utils.MetricLogger(delimiter="  ")
     
 
 
     header = 'Epoch: [{}/{}]'.format(epoch, args.epochs)
-    for it, (images, _) in enumerate(metric_logger.log_every(data_loader, 10, header)):
+    for it, (images, c) in enumerate(metric_logger.log_every(data_loader, 10, header)):
         # update weight decay and learning rate according to their schedule
         it = len(data_loader) * epoch + it  # global training iteration
         for i, param_group in enumerate(optimizer.param_groups):
@@ -325,10 +331,16 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
         # move images to gpu
         images = [im.cuda(non_blocking=True) for im in images]
         # teacher and student forward passes + compute difrom torch.autograd import Functionno loss
+        alpha = alpha_scheduler.step()
         with torch.cuda.amp.autocast(fp16_scaler is not None):
             teacher_output = teacher(images[:2])  # only the 2 global views pass through the teacher
             student_output = student(images)
             loss = dino_loss(student_output, teacher_output, epoch)
+            logits = class_discriminator(grl(student_output, alpha))
+            # Compute class acc
+            c = c.reshape(-1).to(logits.device)
+            class_loss = class_criterion(logits, c)
+            loss += class_loss
 
         if not math.isfinite(loss.item()):
             print("Loss is {}, stopping training".format(loss.item()), force=True)
@@ -336,6 +348,7 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
 
         # student update
         optimizer.zero_grad()
+        class_optimizer.zero_grad()
         param_norms = None
         if fp16_scaler is None:
             loss.backward()
@@ -344,6 +357,7 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
             utils.cancel_gradients_last_layer(epoch, student,
                                               args.freeze_last_layer)
             optimizer.step()
+            class_optimizer.step()
         else:
             fp16_scaler.scale(loss).backward()
             if args.clip_grad:
@@ -365,6 +379,8 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
         metric_logger.update(loss=loss.item())
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
         metric_logger.update(wd=optimizer.param_groups[0]["weight_decay"])
+        metric_logger.update(class_loss=class_loss.item())
+        metric_logger.update(alpha=alpha)
 
 
     # gather the stats from all processes

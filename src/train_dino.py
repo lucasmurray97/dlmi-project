@@ -31,6 +31,8 @@ TEST_IMAGES_PATH = os.path.abspath(os.path.join(current_path, '..', 'data', 'tes
 SEED = 0
 from utils import BaselineDataset, TestBaselineDataset, ValBaselineDataset
 from models import DANN
+import dino_mod.vision_transformer as vits
+from dino_mod.utils import restart_from_checkpoint
 
 
 # Load data
@@ -38,12 +40,24 @@ train_dataset = BaselineDataset(TRAIN_IMAGES_PATH, transforms.Compose([transform
 val_dataset = ValBaselineDataset(VAL_IMAGES_PATH, transforms.Compose([transforms.ToPILImage(),transforms.Resize((98, 98)), transforms.ToTensor()]))
 test_dataset = TestBaselineDataset(TEST_IMAGES_PATH, transforms.Compose([transforms.ToPILImage(),transforms.Resize((98, 98)), transforms.ToTensor()]))
 
-train_dataloader = DataLoader(train_dataset, batch_size=1024, shuffle=True, num_workers=16)
-val_dataloader = DataLoader(val_dataset, batch_size=1024, shuffle=False, num_workers=16)
-test_dataloader = DataLoader(test_dataset, batch_size=1024, shuffle=False, num_workers=16)
+train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=4)
+val_dataloader = DataLoader(val_dataset, batch_size=128, shuffle=False, num_workers=4)
+test_dataloader = DataLoader(test_dataset, batch_size=128, shuffle=False, num_workers=4)
 
 # Define model
+backbone = vits.__dict__['vit_small'](
+            patch_size=16,
+            drop_path_rate=0.1,  # stochastic depth
+        )
+to_restore = {"epoch": 0}
+restart_from_checkpoint(
+        os.path.join('../../checkpoints/', "checkpoint.pth"),
+        run_variables=to_restore,
+        student=backbone,
+    )
+
 model = DANN(input_dim=512, hidden_dim=256, num_classes=2, lambda_grl=1.0, num_dom=5)
+model.blocks = backbone
 # print number of trainable parameters 
 print(f'Number of trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}')
 criterion = nn.CrossEntropyLoss()
