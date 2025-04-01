@@ -153,6 +153,12 @@ def cancel_gradients_last_layer(epoch, model, freeze_last_layer):
         if "last_layer" in n:
             p.grad = None
 
+def cancel_gradients_discriminator(epoch, model, freeze_discriminator):
+    if epoch >= freeze_discriminator:
+        return
+    for n, p in model.named_parameters():
+            p.grad = None
+
 
 def restart_from_checkpoint(ckp_path, run_variables=None, **kwargs):
     """
