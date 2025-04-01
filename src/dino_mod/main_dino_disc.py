@@ -278,7 +278,7 @@ def train_dino(args):
     class_criterion = nn.CrossEntropyLoss()
     class_optimizer = torch.optim.AdamW(class_discriminator.parameters(), lr=1e-5)
     grl = GradientReversal(lambda_=1.0)
-    total_steps = args.epochs * len(data_loader)
+    total_steps = (args.epochs - args.freeze_discriminator) * len(data_loader)
     alpha_scheduler = AlphaScheduler(total_steps, gamma=2.0)
 
     start_time = time.time()
