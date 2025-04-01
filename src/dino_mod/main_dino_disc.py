@@ -96,6 +96,9 @@ def get_args_parser():
     parser.add_argument('--freeze_last_layer', default=1, type=int, help="""Number of epochs
         during which we keep the output layer fixed. Typically doing so during
         the first epoch helps training. Try increasing this value if the loss does not decrease.""")
+    parser.add_argument('--freeze_discriminator', default=5, type=int, help="""Number of epochs
+        during which we keep the output layer fixed. Typically doing so during
+        the first epoch helps training. Try increasing this value if the loss does not decrease.""")
     parser.add_argument("--lr", default=0.0005, type=float, help="""Learning rate at the end of
         linear warmup (highest LR used during training). The learning rate is linearly scaled
         with the batch size, and specified here for a reference batch size of 256.""")
@@ -276,7 +279,7 @@ def train_dino(args):
     class_optimizer = torch.optim.AdamW(class_discriminator.parameters(), lr=1e-5)
     grl = GradientReversal(lambda_=1.0)
     total_steps = args.epochs * len(data_loader)
-    alpha_scheduler = AlphaScheduler(total_steps)
+    alpha_scheduler = AlphaScheduler(total_steps, gamma=2.0)
 
     start_time = time.time()
     print("Starting DINO training !")
@@ -354,17 +357,22 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
             loss.backward()
             if args.clip_grad:
                 param_norms = utils.clip_gradients(student, args.clip_grad)
+                param_norms_class = utils.clip_gradients(class_discriminator, args.clip_grad)
             utils.cancel_gradients_last_layer(epoch, student,
                                               args.freeze_last_layer)
+            utils.cancel_gradients_discriminator(epoch, class_discriminator, args.freeze_discriminator)
             optimizer.step()
             class_optimizer.step()
         else:
             fp16_scaler.scale(loss).backward()
             if args.clip_grad:
                 fp16_scaler.unscale_(optimizer)  # unscale the gradients of optimizer's assigned params in-place
+                fp16_scaler.unscale_(class_optimizer)
                 param_norms = utils.clip_gradients(student, args.clip_grad)
+                param_norms_class = utils.clip_gradients(class_discriminator, args.clip_grad)
             utils.cancel_gradients_last_layer(epoch, student,
                                               args.freeze_last_layer)
+            utils.cancel_gradients_discriminator(epoch, class_discriminator, args.freeze_discriminator)
             fp16_scaler.step(optimizer)
             fp16_scaler.update()
 
