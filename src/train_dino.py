@@ -52,7 +52,7 @@ backbone = vits.__dict__['vit_small'](
 
 to_restore = {"epoch": 0}
 restart_from_checkpoint(
-        os.path.join('../../checkpoints/', "checkpoint_v1.pth"),
+        os.path.join('./weights/pre-training/', "dino.pth"),
         run_variables=to_restore,
         student=backbone,
     )
