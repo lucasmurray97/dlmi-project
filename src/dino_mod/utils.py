@@ -849,7 +849,7 @@ class CombinedH5UnlabeledDataset(Dataset):
             with h5py.File(path, 'r') as f:
                 for img_id in f.keys():
                     if file_idx == 0:
-                        domain_label = torch.tensor(0)
+                        domain_label = None
                     elif file_idx == 1:
                         domain_label = torch.tensor(1)
                     else:
@@ -864,6 +864,8 @@ class CombinedH5UnlabeledDataset(Dataset):
         h5_path = self.h5_paths[file_idx]
         with h5py.File(h5_path, 'r') as f:
             img_np = np.array(f[img_id]['img'])
+            if domain_label == None:
+                domain_label = torch.tensor(f[img_id]['metadata'][0])
         img = torch.tensor(img_np)
         if img.ndim == 3 and img.shape[0] != 3:
             img = img.permute(2, 0, 1)

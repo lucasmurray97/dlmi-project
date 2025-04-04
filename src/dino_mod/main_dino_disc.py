@@ -274,7 +274,7 @@ def train_dino(args):
     #     dino_loss=dino_loss,
     # )
     start_epoch = to_restore["epoch"]
-    class_discriminator = ClassDiscriminator(input_dim=65536, num_classes=3).to(student.device)
+    class_discriminator = ClassDiscriminator(input_dim=65536, num_classes=5).to(student.device)
     class_criterion = nn.CrossEntropyLoss()
     class_optimizer = torch.optim.AdamW(class_discriminator.parameters(), lr=1e-5)
     grl = GradientReversal(lambda_=1.0)
