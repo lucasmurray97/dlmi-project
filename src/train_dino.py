@@ -61,6 +61,11 @@ model = DANN(input_dim=512, hidden_dim=256, num_classes=2, lambda_grl=1.0, num_d
 model.blocks = backbone
 for param in model.blocks.parameters():
     param.requires_grad = False
+
+for name, param in model.blocks.named_parameters():
+    if 'blocks.10' in name or 'blocks.11' in name or 'norm' in name:
+        param.requires_grad = True
+
 # print number of trainable parameters 
 print(f'Number of trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}')
 criterion = nn.CrossEntropyLoss()
@@ -78,7 +83,7 @@ train_class_acc_h = []
 val_class_acc_h = []
 
 # Define training parameters
-n_epoch = 50
+n_epoch = 20
 alpha = 1.
 len_dataloader = len(train_dataloader)
 model.to(device)
