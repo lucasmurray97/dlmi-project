@@ -214,12 +214,17 @@ def train_dino(args):
     else:
         # teacher_without_ddp and teacher are the same thing
         teacher_without_ddp = teacher
-    student = nn.parallel.DistributedDataParallel(student, device_ids=[args.gpu])
+    student = nn.parallel.DistributedDataParallel(student, device_ids=[args.gpu], find_unused_parameters=True)
     # teacher and student start with the same weights
     teacher_without_ddp.load_state_dict(student.module.state_dict())
     # there is no backpropagation through the teacher, so no need for gradients
     for p in teacher.parameters():
         p.requires_grad = False
+    # Freeze the patch embedding and first 6/12 transformer blocks
+    for name, param in student.module.backbone.named_parameters():
+        if "blocks.0" in name or "patch_embed" in name:
+            param.requires_grad = False
+
     print(f"Student and Teacher are built: they are both {args.arch} network.")
 
     # ============ preparing loss ... ============
@@ -279,7 +284,7 @@ def train_dino(args):
     class_optimizer = torch.optim.AdamW(class_discriminator.parameters(), lr=1e-5)
     grl = GradientReversal(lambda_=1.0)
     total_steps = (args.epochs - args.freeze_discriminator) * len(data_loader)
-    alpha_scheduler = AlphaScheduler(total_steps, gamma=10.0)
+    alpha_scheduler = AlphaScheduler(total_steps, gamma=5.0)
 
     start_time = time.time()
     print("Starting DINO training !")
@@ -338,12 +343,12 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
         with torch.cuda.amp.autocast(fp16_scaler is not None):
             teacher_output = teacher(images[:2])  # only the 2 global views pass through the teacher
             student_output = student(images)
-            loss = dino_loss(student_output, teacher_output, epoch)
+            d_loss = dino_loss(student_output, teacher_output, epoch)
             logits = class_discriminator(grl(student_output, alpha))
             # Compute class acc
             c = c.reshape(-1).to(logits.device)
             class_loss = class_criterion(logits, c)
-            loss += class_loss
+            loss = d_loss + class_loss
 
         if not math.isfinite(loss.item()):
             print("Loss is {}, stopping training".format(loss.item()), force=True)
@@ -384,7 +389,7 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
 
         # logging
         torch.cuda.synchronize()
-        metric_logger.update(loss=loss.item())
+        metric_logger.update(dino_loss=d_loss.item())
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
         metric_logger.update(wd=optimizer.param_groups[0]["weight_decay"])
         metric_logger.update(class_loss=class_loss.item())
