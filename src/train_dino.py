@@ -40,9 +40,9 @@ train_dataset = BaselineDataset(TRAIN_IMAGES_PATH, transforms.Compose([transform
 val_dataset = ValBaselineDataset(VAL_IMAGES_PATH, transforms.Compose([transforms.ToPILImage(),transforms.Resize((98, 98)), transforms.ToTensor()]))
 test_dataset = TestBaselineDataset(TEST_IMAGES_PATH, transforms.Compose([transforms.ToPILImage(),transforms.Resize((98, 98)), transforms.ToTensor()]))
 
-train_dataloader = DataLoader(train_dataset, batch_size=1024, shuffle=True, num_workers=8)
-val_dataloader = DataLoader(val_dataset, batch_size=1024, shuffle=False, num_workers=8)
-test_dataloader = DataLoader(test_dataset, batch_size=1024, shuffle=False, num_workers=8)
+train_dataloader = DataLoader(train_dataset, batch_size=256, shuffle=True, num_workers=8)
+val_dataloader = DataLoader(val_dataset, batch_size=256, shuffle=False, num_workers=8)
+test_dataloader = DataLoader(test_dataset, batch_size=256, shuffle=False, num_workers=8)
 
 # Define model
 backbone = vits.__dict__['vit_small'](
@@ -50,19 +50,17 @@ backbone = vits.__dict__['vit_small'](
             drop_path_rate=0.1,  # stochastic depth
         )
 
-to_restore = {"epoch": 0}
 restart_from_checkpoint(
-        os.path.join('./weights/pre-training/', "dino.pth"),
-        run_variables=to_restore,
+        os.path.join('./weights/pre-training/', "dino_disc_gamma=5.pth"),
         student=backbone,
     )
 
 model = DANN(input_dim=512, hidden_dim=256, num_classes=2, lambda_grl=1.0, num_dom=5)
-model.blocks = backbone
-for param in model.blocks.parameters():
+model.feature_extractor.net.load_state_dict(backbone.state_dict(), strict=False)
+for param in model.feature_extractor.net.parameters():
     param.requires_grad = False
 
-for name, param in model.blocks.named_parameters():
+for name, param in model.feature_extractor.net.named_parameters():
     if 'blocks.10' in name or 'blocks.11' in name or 'norm' in name:
         param.requires_grad = True
 
@@ -83,7 +81,7 @@ train_class_acc_h = []
 val_class_acc_h = []
 
 # Define training parameters
-n_epoch = 20
+n_epoch = 50
 alpha = 1.
 len_dataloader = len(train_dataloader)
 model.to(device)
