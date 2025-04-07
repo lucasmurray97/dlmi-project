@@ -52,7 +52,7 @@ backbone = vits.__dict__['vit_small'](
         
 
 restart_from_checkpoint(
-        os.path.join('./weights/pre-training/', "dino_14.pth"),
+        os.path.join('./weights/pre-training/', "dino_disc_14_gamma=2.pth"),
         student=backbone,
     )
 
@@ -80,7 +80,7 @@ train_class_acc_h = []
 val_class_acc_h = []
 
 # Define training parameters
-n_epoch = 50
+n_epoch = 100
 alpha = 1.
 len_dataloader = len(train_dataloader)
 model.to(device)
@@ -135,7 +135,7 @@ for epoch in tqdm(range(n_epoch)):
     # Save model if val_class_accuracy is better
     if val_class_accuracy.compute() > best_val_acc:
         best_val_acc = val_class_accuracy.compute()
-        torch.save(model.state_dict(), 'model_dino.pth')
+        torch.save(model.state_dict(), 'model_dino_p_freezed.pth')
         print('Model saved')
 
 # Plot results
