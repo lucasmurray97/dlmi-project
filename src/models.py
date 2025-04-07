@@ -3,6 +3,9 @@ import torch.nn as nn
 from torch.autograd import Function
 from utils_training import init_weights_xavier
 from torchvision.models import resnet18, resnet34
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # --------------------------
 # Gradient Reversal Layer
@@ -30,20 +33,26 @@ class GradientReversal(nn.Module):
 # --------------------------
 
 class FeatureExtractor(nn.Module):
-    def __init__(self):
+    def __init__(self, backbone=None):
         super().__init__()
-        self.net = torch.hub.load('facebookresearch/dinov2', 'dinov2_vits14')
+        if backbone is None:
+            self.extractor = torch.hub.load('facebookresearch/dinov2', 'dinov2_vits14')
+        else:
+            self.extractor = backbone
         # Freeze the feature extractor
-        for param in self.net.parameters():
+        for param in self.extractor.parameters():
             param.requires_grad = False
         # add three linear layers to the end of the network
-        self.net.head = nn.Sequential(
+        self.head = nn.Sequential(
             nn.Linear(384, 512),
             nn.ReLU(),
             nn.Linear(512, 512))
         
     def forward(self, x):
-        return self.net(x)
+        features = self.extractor(x)
+        x = self.head(features)
+        return x
+        
 
 # --------------------------
 # Label Classifier
@@ -73,10 +82,10 @@ class DomainDiscriminator(nn.Module):
         self.discriminator = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
-            # nn.Linear(hidden_dim, hidden_dim),
-            # nn.ReLU(),
-            # nn.Linear(hidden_dim, hidden_dim),
-            # nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
             nn.Linear(hidden_dim, num_dom)
         )
 
@@ -87,9 +96,9 @@ class DomainDiscriminator(nn.Module):
 # DANN Model Wrapper
 # --------------------------
 class DANN(nn.Module):
-    def __init__(self, input_dim=512, hidden_dim=256, num_classes=2, lambda_grl=1.0, num_dom=5):
+    def __init__(self, input_dim=512, hidden_dim=256, num_classes=2, lambda_grl=1.0, num_dom=5, backbone=None):
         super().__init__()
-        self.feature_extractor = FeatureExtractor()
+        self.feature_extractor = FeatureExtractor(backbone)
         self.label_classifier = LabelClassifier(input_dim, hidden_dim, num_classes)
         self.domain_discriminator = DomainDiscriminator(input_dim, hidden_dim, num_dom)
         self.grl = GradientReversal(lambda_grl)

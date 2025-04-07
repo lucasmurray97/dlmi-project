@@ -46,21 +46,19 @@ test_dataloader = DataLoader(test_dataset, batch_size=256, shuffle=False, num_wo
 
 # Define model
 backbone = vits.__dict__['vit_small'](
-            patch_size=16,
+            patch_size=14,
             drop_path_rate=0.1,  # stochastic depth
         )
+        
 
 restart_from_checkpoint(
-        os.path.join('./weights/pre-training/', "dino_disc_gamma=5.pth"),
+        os.path.join('./weights/pre-training/', "dino_14.pth"),
         student=backbone,
     )
 
-model = DANN(input_dim=512, hidden_dim=256, num_classes=2, lambda_grl=1.0, num_dom=5)
-model.feature_extractor.net.load_state_dict(backbone.state_dict(), strict=False)
-for param in model.feature_extractor.net.parameters():
-    param.requires_grad = False
+model = DANN(input_dim=512, hidden_dim=256, num_classes=2, lambda_grl=1.0, num_dom=5, backbone=backbone)
 
-for name, param in model.feature_extractor.net.named_parameters():
+for name, param in model.feature_extractor.extractor.named_parameters():
     if 'blocks.10' in name or 'blocks.11' in name or 'norm' in name:
         param.requires_grad = True
 
