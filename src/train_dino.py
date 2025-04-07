@@ -64,6 +64,7 @@ model = DANN(input_dim=512, hidden_dim=256, num_classes=2, lambda_grl=1.0, num_d
 
 # print number of trainable parameters 
 print(f'Number of trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}')
+print(len(train_dataset))
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50, eta_min=1e-5)
