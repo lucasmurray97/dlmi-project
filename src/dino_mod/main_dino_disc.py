@@ -133,7 +133,8 @@ def get_args_parser():
         distributed training; see https://pytorch.org/docs/stable/distributed.html""")
     parser.add_argument("--local_rank", default=0, type=int, help="Please ignore and do not set this argument.")
     parser.add_argument("--gamma", default=2.0, type=float, help="Gamma value for the gradient reversal layer.")
-    
+    # max alpha
+    parser.add_argument("--max_alpha", default=1.0, type=float, help="Max alpha value for the gradient reversal layer.")
     return parser
 
 
