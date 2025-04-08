@@ -132,6 +132,8 @@ def get_args_parser():
     parser.add_argument("--dist_url", default="env://", type=str, help="""url used to set up
         distributed training; see https://pytorch.org/docs/stable/distributed.html""")
     parser.add_argument("--local_rank", default=0, type=int, help="Please ignore and do not set this argument.")
+    parser.add_argument("gamma", default=2.0, type=float, help="Gamma value for the gradient reversal layer.")
+    
     return parser
 
 
@@ -284,7 +286,7 @@ def train_dino(args):
     class_optimizer = torch.optim.AdamW(class_discriminator.parameters(), lr=1e-5)
     grl = GradientReversal(lambda_=1.0)
     total_steps = (args.epochs - args.freeze_discriminator) * len(data_loader)
-    alpha_scheduler = AlphaScheduler(total_steps, gamma=5.0)
+    alpha_scheduler = AlphaScheduler(total_steps, gamma=args.gamma)
 
     start_time = time.time()
     print("Starting DINO training !")
