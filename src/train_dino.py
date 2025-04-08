@@ -59,7 +59,7 @@ restart_from_checkpoint(
 model = DANN(input_dim=512, hidden_dim=256, num_classes=2, lambda_grl=1.0, num_dom=5, backbone=backbone)
 
 for name, param in model.feature_extractor.extractor.named_parameters():
-    if 'blocks.10' in name or 'blocks.11' in name or 'norm' in name:
+    if 'blocks.10' in name or 'blocks.11' or "blocks.9" in name or 'norm' in name:
         param.requires_grad = True
 
 # print number of trainable parameters 
@@ -135,7 +135,7 @@ for epoch in tqdm(range(n_epoch)):
     # Save model if val_class_accuracy is better
     if val_class_accuracy.compute() > best_val_acc:
         best_val_acc = val_class_accuracy.compute()
-        torch.save(model.state_dict(), 'model_dino_14_disc_unf.pth')
+        torch.save(model.state_dict(), 'model_dino_14_disc_unf_9.pth')
         print('Model saved')
 
 # Plot results
@@ -165,6 +165,6 @@ results = {
 }
 
 # save results to json
-with open('results_dino_14_disc.json', 'w') as f:
+with open('results_dino_14_disc_unf_9.json', 'w') as f:
     json.dump(results, f)
 
