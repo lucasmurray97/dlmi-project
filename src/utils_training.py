@@ -7,7 +7,7 @@ import numpy as np
 import math
     
 class BaselineDataset(Dataset):
-    def __init__(self, dataset_path, preprocessing, mode):
+    def __init__(self, dataset_path, preprocessing = None, mode = 'train'):
         super(BaselineDataset, self).__init__()
         self.dataset_path = dataset_path
         self.preprocessing = preprocessing
@@ -26,10 +26,12 @@ class BaselineDataset(Dataset):
             img = torch.tensor(img_np)
             label = np.array(hdf.get(img_id).get('label')) if self.mode == 'train' else None
             center = np.array(hdf.get(img_id).get('metadata'))[0] if self.mode == 'train' else None
-        return self.preprocessing(img).float(), label, center
+        if self.preprocessing is not None:
+            img = self.preprocessing(img)
+        return img.float(), label, center
     
 class ValBaselineDataset(BaselineDataset):
-    def __init__(self, dataset_path, preprocessing):
+    def __init__(self, dataset_path, preprocessing = None):
         super(ValBaselineDataset, self).__init__(dataset_path, preprocessing, mode='test')
         
     def __getitem__(self, idx):
@@ -38,10 +40,12 @@ class ValBaselineDataset(BaselineDataset):
             img_np = np.array(hdf.get(img_id).get('img'))
             img = torch.tensor(img_np)
             label = np.array(hdf.get(img_id).get('label'))
-        return self.preprocessing(img).float(), label, torch.tensor(3)
+        if self.preprocessing is not None:
+            img = self.preprocessing(img)
+        return img.float(), label, torch.tensor(3)
 
 class TestBaselineDataset(BaselineDataset):
-    def __init__(self, dataset_path, preprocessing):
+    def __init__(self, dataset_path, preprocessing = None):
         super(TestBaselineDataset, self).__init__(dataset_path, preprocessing, mode='test')
         
     def __getitem__(self, idx):
@@ -49,7 +53,9 @@ class TestBaselineDataset(BaselineDataset):
         with h5py.File(self.dataset_path, 'r') as hdf:
             img_np = np.array(hdf.get(img_id).get('img'))
             img = torch.tensor(img_np)
-        return self.preprocessing(img).float(), torch.tensor(4)
+        if self.preprocessing is not None:
+            img = self.preprocessing(img)
+        return img.float(), torch.tensor(4)
     
 def init_weights_xavier(m):
     if isinstance(m, (nn.Conv1d, nn.Conv2d, nn.Linear, nn.ConvTranspose2d)):

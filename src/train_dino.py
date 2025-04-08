@@ -27,6 +27,7 @@ from utils_training import BaselineDataset, TestBaselineDataset, ValBaselineData
 from models import DANN
 import dino_mod.vision_transformer as vits
 from dino_mod.utils import restart_from_checkpoint
+import argparse
 
 current_path = os.path.dirname(os.path.abspath(__file__))
 TRAIN_IMAGES_PATH = os.path.abspath(os.path.join(current_path, '..', 'data', 'train.h5'))
@@ -35,14 +36,29 @@ TEST_IMAGES_PATH = os.path.abspath(os.path.join(current_path, '..', 'data', 'tes
 SEED = 0
 
 
-# Load data
-train_dataset = BaselineDataset(TRAIN_IMAGES_PATH, transforms.Compose([transforms.ToPILImage(), transforms.Resize((98, 98)), transforms.ToTensor()]), mode='train')
-val_dataset = ValBaselineDataset(VAL_IMAGES_PATH, transforms.Compose([transforms.ToPILImage(),transforms.Resize((98, 98)), transforms.ToTensor()]))
-test_dataset = TestBaselineDataset(TEST_IMAGES_PATH, transforms.Compose([transforms.ToPILImage(),transforms.Resize((98, 98)), transforms.ToTensor()]))
+# Add argument parser
+parser = argparse.ArgumentParser(description='Train DINO model')
+parser.add_argument('--weights', type=str, help='Train the model')
+# batch size
+parser.add_argument('--batch_size', type=int, default=256, help='Batch size')
+# num workers
+parser.add_argument('--num_workers', type=int, default=6, help='Number of workers')
+# num epochs
+parser.add_argument('--num_epochs', type=int, default=100, help='Number of epochs')
+# experiment name
+parser.add_argument('--experiment_name', type=str, default='dino', help='Experiment name')
+# patch size
+parser.add_argument('--patch_size', type=int, default=14, help='Patch size')
+args = parser.parse_args()
 
-train_dataloader = DataLoader(train_dataset, batch_size=256, shuffle=True, num_workers=6)
-val_dataloader = DataLoader(val_dataset, batch_size=256, shuffle=False, num_workers=6)
-test_dataloader = DataLoader(test_dataset, batch_size=256, shuffle=False, num_workers=6)
+# Load data
+train_dataset = BaselineDataset(TRAIN_IMAGES_PATH, mode='train')
+val_dataset = ValBaselineDataset(VAL_IMAGES_PATH)
+test_dataset = TestBaselineDataset(TEST_IMAGES_PATH)
+
+train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
+val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
 # Define model
 backbone = vits.__dict__['vit_small'](
@@ -52,7 +68,7 @@ backbone = vits.__dict__['vit_small'](
         
 
 restart_from_checkpoint(
-        os.path.join('./weights/pre-training/', "dino_disc_14_gamma=2.pth"),
+        os.path.join('./weights/pre-training/', args.weights),
         student=backbone,
     )
 
@@ -80,16 +96,13 @@ train_class_acc_h = []
 val_class_acc_h = []
 
 # Define training parameters
-n_epoch = 100
-alpha = 1.
-len_dataloader = len(train_dataloader)
+n_epoch = args.num_epochs
 model.to(device)
 
 # Training loop
 best_val_acc = 0
 steps_per_epoch = len(train_dataloader) + len(val_dataloader) + len(test_dataloader)
 total_steps = n_epoch * steps_per_epoch
-alpha_scheduler = AlphaScheduler(total_steps)
 
 for epoch in tqdm(range(n_epoch)):
     model.train()
@@ -100,6 +113,7 @@ for epoch in tqdm(range(n_epoch)):
     ## Train ###
     for i, (x, y, c) in enumerate(train_dataloader):
         x, y, c = x.to(device), y.to(device), c.to(device)
+        print(x.shape)
         optimizer.zero_grad()
         features = model.feature_extractor(x)
         label_output = model.label_classifier(features)
@@ -135,7 +149,7 @@ for epoch in tqdm(range(n_epoch)):
     # Save model if val_class_accuracy is better
     if val_class_accuracy.compute() > best_val_acc:
         best_val_acc = val_class_accuracy.compute()
-        torch.save(model.state_dict(), 'model_dino_14_disc_unf_9.pth')
+        torch.save(model.state_dict(), f'model_{args.experiment_name}.pth')
         print('Model saved')
 
 # Plot results
@@ -143,7 +157,7 @@ plt.title('Losses')
 plt.plot(train_loss, label='Train Loss')
 plt.plot(val_loss, label='Val Loss')
 plt.legend()
-plt.savefig('loss_dino.png')
+plt.savefig(f'figures/loss_dino_{args.experiment_name}.png')
 # clear
 plt.clf()
 
@@ -152,7 +166,7 @@ plt.title('Class Accuracies')
 plt.plot(train_class_acc_h, label='Train Class Accuracy')
 plt.plot(val_class_acc_h, label='Val Class Accuracy')
 plt.legend()
-plt.savefig('class_acc_dino.png')
+plt.savefig(f'figures/class_acc_dino_{args.experiment_name}.png')
 # clear
 plt.clf()
 
@@ -165,6 +179,6 @@ results = {
 }
 
 # save results to json
-with open('results_dino_14_disc_unf_9.json', 'w') as f:
+with open(f'results_{args.experiment_name}.json', 'w') as f:
     json.dump(results, f)
 
