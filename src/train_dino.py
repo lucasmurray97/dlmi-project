@@ -80,7 +80,7 @@ train_class_acc_h = []
 val_class_acc_h = []
 
 # Define training parameters
-n_epoch = 60
+n_epoch = 100
 alpha = 1.
 len_dataloader = len(train_dataloader)
 model.to(device)
