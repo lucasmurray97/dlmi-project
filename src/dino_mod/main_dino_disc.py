@@ -287,7 +287,7 @@ def train_dino(args):
     class_optimizer = torch.optim.AdamW(class_discriminator.parameters(), lr=1e-5)
     grl = GradientReversal(lambda_=1.0)
     total_steps = (args.epochs - args.freeze_discriminator) * len(data_loader)
-    alpha_scheduler = AlphaScheduler(total_steps, gamma=args.gamma)
+    alpha_scheduler = AlphaScheduler(total_steps, gamma=args.gamma, max_alpha=args.max_alpha)
 
     start_time = time.time()
     print("Starting DINO training !")

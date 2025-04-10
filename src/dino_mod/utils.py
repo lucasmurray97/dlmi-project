@@ -174,14 +174,19 @@ def restart_from_checkpoint(ckp_path, run_variables=None, **kwargs):
     # key is what to look for in the checkpoint file
     # value is the object to load
     # example: {'state_dict': model}
+    state_dict = {k.replace("module.", ""): v for k, v in checkpoint["student"].items()}
+    # remove `backbone.` prefix induced by multicrop wrapper
+    state_dict = {k.replace("backbone.", ""): v for k, v in state_dict.items()}
+    checkpoint = {"student": state_dict}
     for key, value in kwargs.items():
         if key in checkpoint and value is not None:
-            try:
+            try:   
                 msg = value.load_state_dict(checkpoint[key], strict=False)
                 print("=> loaded '{}' from checkpoint '{}' with msg {}".format(key, ckp_path, msg))
             except TypeError:
                 try:
-                    msg = value.load_state_dict(checkpoint[key])
+                    print(checkpoint)
+                    msg = value.load_state_dict(checkpoint)
                     print("=> loaded '{}' from checkpoint: '{}'".format(key, ckp_path))
                 except ValueError:
                     print("=> failed to load '{}' from checkpoint: '{}'".format(key, ckp_path))

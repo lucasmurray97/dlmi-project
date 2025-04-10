@@ -58,17 +58,22 @@ class FeatureExtractor(nn.Module):
 # Label Classifier
 # --------------------------
 class LabelClassifier(nn.Module):
-    def __init__(self, input_dim = 512, hidden_dim=256, num_classes=2):
+    def __init__(self, input_dim = 512, hidden_dim=256, num_classes=2, n_hidden_layers=2):
         super().__init__()
-        self.classifier = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, num_classes)
-        )
+        self.classifier = nn.ModuleList()
+        # Create the first layer
+        self.classifier.append(nn.Linear(input_dim, hidden_dim))
+        self.classifier.append(nn.ReLU())
+        # Create the hidden layers
+        for _ in range(n_hidden_layers):
+            self.classifier.append(nn.Linear(hidden_dim, hidden_dim))
+            self.classifier.append(nn.ReLU())
+        # Create the output layer
+        self.classifier.append(nn.Linear(hidden_dim, hidden_dim))
+        self.classifier.append(nn.ReLU())
+        self.classifier.append(nn.Linear(hidden_dim, num_classes))
+        # Convert the list to a sequential module
+        self.classifier = nn.Sequential(*self.classifier)
 
     def forward(self, features):
         return self.classifier(features)
@@ -77,17 +82,22 @@ class LabelClassifier(nn.Module):
 # Domain Discriminator
 # --------------------------
 class DomainDiscriminator(nn.Module):
-    def __init__(self, input_dim = 512, hidden_dim=256, num_dom=5):
+    def __init__(self, input_dim = 512, hidden_dim=256, num_dom=5, n_hidden_layers=2):
         super().__init__()
-        self.discriminator = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, num_dom)
-        )
+        self.discriminator = nn.ModuleList()
+        # Create the first layer
+        self.discriminator.append(nn.Linear(input_dim, hidden_dim))
+        self.discriminator.append(nn.ReLU())
+        # Create the hidden layers
+        for _ in range(n_hidden_layers):
+            self.discriminator.append(nn.Linear(hidden_dim, hidden_dim))
+            self.discriminator.append(nn.ReLU())
+        # Create the output layer
+        self.discriminator.append(nn.Linear(hidden_dim, hidden_dim))
+        self.discriminator.append(nn.ReLU())
+        self.discriminator.append(nn.Linear(hidden_dim, num_dom))
+        # Convert the list to a sequential module
+        self.discriminator = nn.Sequential(*self.discriminator)
 
     def forward(self, features):
         return self.discriminator(features)
@@ -96,11 +106,11 @@ class DomainDiscriminator(nn.Module):
 # DANN Model Wrapper
 # --------------------------
 class DANN(nn.Module):
-    def __init__(self, input_dim=512, hidden_dim=256, num_classes=2, lambda_grl=1.0, num_dom=5, backbone=None):
+    def __init__(self, input_dim=512, hidden_dim=256, num_classes=2, lambda_grl=1.0, num_dom=5, backbone=None, num_hidden_layers=2):
         super().__init__()
         self.feature_extractor = FeatureExtractor(backbone)
-        self.label_classifier = LabelClassifier(input_dim, hidden_dim, num_classes)
-        self.domain_discriminator = DomainDiscriminator(input_dim, hidden_dim, num_dom)
+        self.label_classifier = LabelClassifier(input_dim, hidden_dim, num_classes, num_hidden_layers)
+        self.domain_discriminator = DomainDiscriminator(input_dim, hidden_dim, num_dom, num_hidden_layers)
         self.grl = GradientReversal(lambda_grl)
         self.label_classifier.apply(init_weights_xavier)
         self.domain_discriminator.apply(init_weights_xavier)

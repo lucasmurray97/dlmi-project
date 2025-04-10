@@ -48,7 +48,13 @@ parser.add_argument('--num_epochs', type=int, default=100, help='Number of epoch
 # experiment name
 parser.add_argument('--experiment_name', type=str, default='dino', help='Experiment name')
 # patch size
-parser.add_argument('--patch_size', type=int, default=14, help='Patch size')
+parser.add_argument('--patch_size', type=int, default=8, help='Patch size')
+# Number of layers
+parser.add_argument('--num_layers', type=int, default=12, help='Number of layers')
+# Number of hidden dimensions
+parser.add_argument('--hidden_dim', type=int, default=256, help='Hidden dimensions')
+# List of layers to be unfrozen
+parser.add_argument('--unfreeze_layers', type=str, default='', help='Layers to be unfrozen')
 args = parser.parse_args()
 
 # Load data
@@ -62,21 +68,30 @@ test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=F
 
 # Define model
 backbone = vits.__dict__['vit_small'](
-            patch_size=14,
+            patch_size=8,
             drop_path_rate=0.1,  # stochastic depth
         )
-        
+# current path
+current_path = os.path.dirname(os.path.abspath(__file__))
+weights_path = os.path.join(current_path, f'./weights/pre-training/{args.weights}')
 
 restart_from_checkpoint(
-        os.path.join('./weights/pre-training/', args.weights),
+        weights_path,
         student=backbone,
     )
 
-model = DANN(input_dim=512, hidden_dim=256, num_classes=2, lambda_grl=1.0, num_dom=5, backbone=backbone)
+model = DANN(input_dim=512, hidden_dim=args.hidden_dim, num_classes=2, lambda_grl=1.0, num_dom=5, backbone=backbone, num_hidden_layers=args.num_layers)
 
-for name, param in model.feature_extractor.extractor.named_parameters():
-    if 'blocks.10' in name or 'blocks.11' or "blocks.9" in name or 'norm' in name:
-        param.requires_grad = True
+# Unfreeze layers
+if args.unfreeze_layers != '':
+    unfreeze_layers = [int(x) for x in args.unfreeze_layers.split(',')]
+    for name, param in model.feature_extractor.named_parameters():
+        if any(f'blocks.{layer}' in name for layer in unfreeze_layers):
+            param.requires_grad = True
+        elif 'norm' in name:
+            param.requires_grad = True
+        else:
+            param.requires_grad = False
 
 # print number of trainable parameters 
 print(f'Number of trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}')
@@ -113,7 +128,6 @@ for epoch in tqdm(range(n_epoch)):
     ## Train ###
     for i, (x, y, c) in enumerate(train_dataloader):
         x, y, c = x.to(device), y.to(device), c.to(device)
-        print(x.shape)
         optimizer.zero_grad()
         features = model.feature_extractor(x)
         label_output = model.label_classifier(features)
