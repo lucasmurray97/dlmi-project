@@ -37,19 +37,13 @@ SEED = 0
 
 # Define model
 backbone = vits.__dict__['vit_small'](
-            patch_size=14,
+            patch_size=8,
             drop_path_rate=0.1,  # stochastic depth
         )
         
+model = DANN(input_dim=512, hidden_dim=256, num_classes=2, lambda_grl=1.0, num_dom=5, backbone=backbone, num_hidden_layers=2)
 
-restart_from_checkpoint(
-        os.path.join('./weights/pre-training/', "dino_14.pth"),
-        student=backbone,
-    )
-
-model = DANN(input_dim=512, hidden_dim=256, num_classes=2, lambda_grl=1.0, num_dom=5, backbone=backbone)
-
-state_dict = torch.load('./src/weights/training/model_dino_14.pth', map_location='cpu')
+state_dict = torch.load('./src/weights/training/model_dino_weak_256_2.pth', map_location='cpu')
 model.load_state_dict(state_dict)
 
 # Carga solo en el backbone DINO
@@ -64,14 +58,14 @@ with h5py.File(VAL_IMAGES_PATH, 'r') as hdf:
 tf = transforms.Compose([transforms.ToPILImage(),transforms.Resize((98, 98)), transforms.ToTensor()])
 acc = 0
 with h5py.File(VAL_IMAGES_PATH, 'r') as hdf:
-    for val_id in tqdm(val_ids[:1000]):
+    for val_id in tqdm(val_ids[:10000]):
         img = tf(torch.tensor(np.array(hdf.get(val_id).get('img')))).unsqueeze(0).float().to(device)
         class_ = np.array(hdf.get(val_id).get('label'))
         features = model.feature_extractor(img)
         label_output = model.label_classifier(features)
         class_pred = torch.argmax(label_output).detach().cpu()
         acc += class_pred.item() == class_
-print("Accuracy: ", acc / len(val_ids[:1000]))
+print("Accuracy: ", acc / len(val_ids[:10000]))
 
 with h5py.File(TEST_IMAGES_PATH, 'r') as hdf:
     test_ids = list(hdf.keys())
