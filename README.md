@@ -61,7 +61,7 @@ We experimented with varying classifier architectures (1–4 layers, 128–256 d
 |-----------------------|---------------------|----------------|
 | Strong Adversarial    | 0.90                | **0.904**      |
 | Weak Adversarial      | 0.86                | **0.909**      |
-| No Adversarial (Base) | 0.93                | 0.78           |
+| No Adversarial        | 0.93                | 0.78           |
 
 Note: Test results from Kaggle submissions. Due to limited submission quota, not all configurations were tested.
 
@@ -79,19 +79,25 @@ Note: Test results from Kaggle submissions. Due to limited submission quota, not
 ## 📂 Repository Structure (Suggested)
 
 ```
-.
-├── data/                       # Medical images
-├── models/
-│   ├── dino_pretrain.py       # DINO with adversarial component
-│   ├── classifier.py          # Classification head
-│   └── dann_baseline.py       # DANN implementation (optional)
-├── utils/
-│   ├── training.py
-│   ├── evaluation.py
-│   └── scheduler.py           # Custom alpha(t) scheduler
-├── results/
-├── README.md
-└── requirements.txt
+src/
+├── dino_mod/                    # Core training modules for DINO
+│   ├── main_dino_disc.py       # DINO with adversarial discriminator
+│   ├── main_dino.py            # Standard DINO training
+│   ├── utils.py                # Helper functions
+│   └── vision_transformer.py   # ViT architecture definition
+│
+├── figures/                    # Output figures and plots
+├── weights/                    # Model checkpoints and saved weights
+│
+├── __init__.py
+├── eval.py                     # Evaluation utilities
+├── models.py                   # Model architecture components
+├── pre-train-dino.ipynb        # Notebook for DINO pretraining
+├── train_dann.py               # DANN baseline implementation
+├── train_dino.py               # Main DINO training script for supervised learning
+├── train_mix.py                # DANN hybrid training strategy
+├── train-dino.ipynb            # Kaggle training notebook version
+└── utils_training.py           # Training utilities and loss functions
 ```
 
 ---
