@@ -30,7 +30,7 @@ Deep learning models can achieve remarkable results in cancer detection but stru
   ```
   where `α(t)` increases over time using a sigmoid schedule.
 
-### 2. **Supervised Fine-Tuning**
+### 2. **Supervised Learning**
 - **Classifier Head:** MLP on top of the DINO backbone.
 - **Two strategies tested:**
   - Frozen backbone
