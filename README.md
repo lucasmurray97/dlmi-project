@@ -2,7 +2,6 @@
 
 ### MVA Project DLMI 2025 — Group 37  
 **Authors:** Lucas Murray-Hidalgo, Antoine Sicard  
-**Emails:** lucasmurrayh@gmail.com, antoine.sicard96@gmail.com
 
 ## 🧠 Project Overview
 
