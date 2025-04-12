@@ -43,7 +43,7 @@ Deep learning models can achieve remarkable results in cancer detection but stru
 Three pretraining setups were tested:
 1. **Strong Adversarial**
 2. **Weak Adversarial**
-3. **No Adversarial (Baseline)**
+3. **No Adversarial**
 
 We experimented with varying classifier architectures (1–4 layers, 128–256 dimensions) and different backbone freezing strategies.
 
