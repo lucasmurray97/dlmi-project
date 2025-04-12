@@ -75,7 +75,7 @@ Note: Test results from Kaggle submissions. Due to limited submission quota, not
 
 ---
 
-## 📂 Repository Structure (Suggested)
+## 📂 Repository Structure
 
 ```
 src/
