@@ -102,7 +102,7 @@ src/
 ---
 
 ## 📚 References
-
+- Caron et al. (2021). *Emerging Properties in Self-Supervised Vision Transformers*.
 - Ganin & Lempitsky (2015). *Unsupervised Domain Adaptation by Backpropagation*.
 - Oquab et al. (2024). *DINOv2: Learning Robust Visual Features Without Supervision*.
 - Esteva et al. (2017). *Dermatologist-level classification of skin cancer*.
