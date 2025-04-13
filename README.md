@@ -109,8 +109,8 @@ src/
 
 ---
 
----
 ## To recreate the final submission:
+
 From the root of the project run:
 ```
 python src/train_dino.py --weights checkpoint0050_strong.pth batch_size 4 --num_workers 4 --num_epochs 10 --experiment_name submission --num_layers 2 --hidden_dim 256
